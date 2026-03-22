@@ -49,6 +49,14 @@ Click "Register" on the login screen to create a new account. New accounts get t
 
 Click "Sign out" in the top bar to end your session.
 
+### Safety Filters
+
+All messages are automatically checked for harmful content including harassment, hate speech, threats, and explicit material. If a message is blocked, you'll see a message like:
+
+> "Your message was blocked by our safety filter. This platform does not allow harassment, hate speech, threats, sexually explicit content, or other harmful material. Please rephrase your message respectfully."
+
+This applies to both your messages and bot responses. The filters cannot be disabled by regular users.
+
 ## What Users Cannot Do
 
 - Change the retrieval backend
@@ -57,6 +65,8 @@ Click "Sign out" in the top bar to end your session.
 - Access the stats endpoint
 - Manage RAG configs
 - Access the admin UI
+- Disable content moderation filters
+- View moderation violation logs
 
 These restrictions are enforced both in the UI (controls are absent) and the API (role-based access).
 

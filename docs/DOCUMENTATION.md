@@ -16,14 +16,15 @@ This document is the comprehensive technical reference for the RAG Chatbot proje
 8. [Authentication & Authorization](#8-authentication--authorization)
 9. [Branding & Customization](#9-branding--customization)
 10. [Error Handling & Notifications](#10-error-handling--notifications)
-11. [Statistics & Monitoring](#11-statistics--monitoring)
-12. [Prerequisites](#12-prerequisites)
-13. [Installation & Setup](#13-installation--setup)
-14. [Cloning for Multiple Deployments](#14-cloning-for-multiple-deployments)
-15. [Testing](#15-testing)
-16. [Environment Variables Reference](#16-environment-variables-reference)
-17. [Troubleshooting](#17-troubleshooting)
-18. [Security Considerations](#18-security-considerations)
+11. [Content Moderation](#11-content-moderation)
+12. [Statistics & Monitoring](#12-statistics--monitoring)
+13. [Prerequisites](#13-prerequisites)
+14. [Installation & Setup](#14-installation--setup)
+15. [Cloning for Multiple Deployments](#15-cloning-for-multiple-deployments)
+16. [Testing](#16-testing)
+17. [Environment Variables Reference](#17-environment-variables-reference)
+18. [Troubleshooting](#18-troubleshooting)
+19. [Security Considerations](#19-security-considerations)
 
 ---
 
@@ -342,6 +343,10 @@ Provides email notification functionality for unhandled errors:
 - **`send_error_email()`**: Constructs and sends an HTML email containing the error type, message, request context, user email, domain, timestamp, and full Python traceback. Uses SMTP with optional STARTTLS. Returns `True` on success, `False` on failure. If no SMTP host or recipients are configured, the function returns `False` immediately without attempting to send.
 
 The email body is formatted as an HTML table with a dark-themed code block for the traceback, making it readable in email clients.
+
+### `app/services/moderation.py` -- Content Moderation Service
+
+- **`app/services/moderation.py`** — Content moderation service. Contains regex patterns for 7 harm categories, a `check()` function that scans text against all patterns, and a `log_violation()` function that records violations to PocketBase. Custom blocked words from `.env` are compiled on first use.
 
 ### `app/retrieval/base.py` -- Retrieval Base Classes
 
@@ -673,6 +678,29 @@ Stores every chat interaction for analytics and audit purposes.
 - `updateRule`: `null` -- No one can update chat history (immutable).
 - `deleteRule`: `@request.auth.role = 'superuser'` -- Only superusers can delete records.
 
+### Collection: `moderation_logs`
+
+Stores content moderation violations for admin review and audit purposes.
+
+| Field | Type | Required | Constraints | Description |
+|---|---|---|---|---|
+| `id` | text (auto) | Yes | PocketBase ID | Auto-generated unique identifier. |
+| `user` | relation | Yes | -> users, max 1 | Reference to the user who triggered the violation. |
+| `user_email` | text | Yes | Valid email | Email of the user (for quick reference without joining). |
+| `text_snippet` | text | Yes | Max 500 chars | First 500 characters of the blocked message. |
+| `category` | text | Yes | Non-empty | Which moderation category was triggered (e.g. `sexual_harassment`, `hate_speech`, `custom_blocked`). |
+| `matched_pattern` | text | Yes | Non-empty | The specific word or phrase that matched the moderation pattern. |
+| `direction` | select | Yes | `input`, `output` | Whether the violation was in the user's input message or the bot's output response. |
+| `created` | datetime (auto) | Yes | ISO 8601 | Record creation timestamp. |
+| `updated` | datetime (auto) | Yes | ISO 8601 | Record last update timestamp. |
+
+**Access rules**:
+- `listRule`: `@request.auth.role = 'superuser'` -- Only superusers can list moderation logs.
+- `viewRule`: `@request.auth.role = 'superuser'` -- Only superusers can view moderation logs.
+- `createRule`: `@request.auth.id != ''` -- Any authenticated user can create records (via the moderation service).
+- `updateRule`: `null` -- No one can update moderation logs (immutable).
+- `deleteRule`: `@request.auth.role = 'superuser'` -- Only superusers can delete records.
+
 ---
 
 ## 7. API Reference
@@ -980,6 +1008,48 @@ Stores every chat interaction for analytics and audit purposes.
 
 ---
 
+### `GET /api/admin/moderation-logs`
+
+**Description**: List content moderation violation logs with pagination.
+
+**Authentication**: Required. Superuser only.
+
+**Query parameters**:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `page` | integer | `1` | Page number for pagination. |
+| `per_page` | integer | `50` | Number of records per page (max 100). |
+
+**Response (200)**:
+```json
+{
+  "page": 1,
+  "perPage": 50,
+  "totalItems": 12,
+  "totalPages": 1,
+  "items": [
+    {
+      "id": "mod123",
+      "user": "user456",
+      "user_email": "user@example.com",
+      "text_snippet": "blocked message content...",
+      "category": "hate_speech",
+      "matched_pattern": "matched term",
+      "direction": "input",
+      "created": "2025-01-15T14:30:00Z",
+      "updated": "2025-01-15T14:30:00Z"
+    }
+  ]
+}
+```
+
+**Error responses**:
+- `401`: Missing or invalid token.
+- `403`: User is not a superuser.
+
+---
+
 ### `GET /api/health`
 
 **Description**: Health check endpoint.
@@ -1228,7 +1298,77 @@ The email is constructed as a MIME multipart message with HTML content type, sen
 
 ---
 
-## 11. Statistics & Monitoring
+## 11. Content Moderation
+
+### Overview
+
+The platform includes a built-in content moderation system that scans both user inputs and bot outputs for harmful content. When a violation is detected, the message is blocked, a safe response is shown to the user, and the violation is logged to PocketBase for admin review.
+
+### How It Works
+
+1. **User sends a message** → `moderation.check()` scans the input against all pattern categories
+2. **If blocked**: HTTP 422 is returned with a safe message, violation is logged to `moderation_logs`
+3. **If passed**: the message proceeds to the retrieval/LLM pipeline
+4. **Bot generates a response** → `moderation.check()` scans the output
+5. **If output is blocked**: the response is replaced with a safe message, violation is logged
+
+### Blocked Categories
+
+| Category | Description | Example Patterns |
+|---|---|---|
+| `sexual_harassment` | Unwanted sexual requests, objectification, sexual coercion | "send nudes", "sit on my", unwanted sexual comments |
+| `sexually_explicit` | Pornography, erotic content generation, explicit material | "write erotica", "porn", explicit sexual acts |
+| `hate_speech` | Slurs, genocide advocacy, racial/religious supremacy | Racial slurs, "kill all [group]", supremacist language |
+| `threats_violence` | Death threats, weapons instructions, mass violence | "how to make a bomb", "I'll kill you", mass shooting references |
+| `self_harm` | Suicide methods, self-injury encouragement | "how to commit suicide", "best way to die" |
+| `child_exploitation` | Any CSAM-related content | Child sexual abuse material references |
+| `doxxing_privacy` | Personal info hunting, swatting | "find their address", "dox", "swat" |
+
+### Configuration
+
+```env
+# Enable or disable moderation (default: true)
+MODERATION_ENABLED=true
+
+# Add custom blocked words (comma-separated, matched as whole words)
+MODERATION_CUSTOM_BLOCKED=badword1,offensive_term,unwanted_phrase
+```
+
+Setting `MODERATION_ENABLED=false` disables all checks. Custom blocked words are matched as case-insensitive whole words and logged under the `custom_blocked` category.
+
+### Moderation Logs
+
+All violations are stored in the `moderation_logs` PocketBase collection:
+
+| Field | Type | Description |
+|---|---|---|
+| `user` | relation | Reference to the user who triggered the violation |
+| `user_email` | text | Email of the user (for quick reference) |
+| `text_snippet` | text | First 500 characters of the blocked message |
+| `category` | text | Which category was triggered (e.g. `sexual_harassment`) |
+| `matched_pattern` | text | The specific word/phrase that matched |
+| `direction` | select | `input` (user message) or `output` (bot response) |
+
+Superusers can review violations via:
+
+```bash
+GET /api/admin/moderation-logs?page=1&per_page=50
+Authorization: Bearer SUPERUSER_TOKEN
+```
+
+### Implementation Details
+
+- Patterns are compiled as Python regex at import time for performance
+- Matching is case-insensitive with word boundary detection (`\b`)
+- Custom blocked words are escaped to prevent regex injection
+- The moderation service is at `app/services/moderation.py`
+- Input moderation happens in the chat router before the LLM call
+- Output moderation happens after the LLM response, before returning to the user
+- Logging is async but awaited to ensure violations are recorded before the response is sent
+
+---
+
+## 12. Statistics & Monitoring
 
 ### Stats Endpoint
 
@@ -1271,7 +1411,7 @@ All calls use `perPage=1` where only the count is needed, reading `totalItems` f
 
 ---
 
-## 12. Prerequisites
+## 13. Prerequisites
 
 ### For Local Development
 
@@ -1332,7 +1472,7 @@ For `vector_search`:
 
 ---
 
-## 13. Installation & Setup
+## 14. Installation & Setup
 
 ### Local Development
 
@@ -1563,7 +1703,7 @@ Follow the same steps as in the local development section (Steps 6-8), using you
 
 ---
 
-## 14. Cloning for Multiple Deployments
+## 15. Cloning for Multiple Deployments
 
 The project is designed to be cloned and customized for different teams, projects, or customers. Each clone runs as an independent instance with its own PocketBase database, users, configurations, and branding.
 
@@ -1653,7 +1793,7 @@ The deploy script syncs code but excludes `.env`, `credentials/`, and `pb/pb_dat
 
 ---
 
-## 15. Testing
+## 16. Testing
 
 ### Test Suite Overview
 
@@ -1734,7 +1874,7 @@ The project includes a comprehensive test suite in the `tests/` directory. Tests
 
 ---
 
-## 16. Environment Variables Reference
+## 17. Environment Variables Reference
 
 The complete list of all environment variables, their types, default values, and descriptions.
 
@@ -1826,9 +1966,16 @@ The complete list of all environment variables, their types, default values, and
 | `SMTP_TLS` | boolean | `true` | No | Whether to use STARTTLS encryption. Set to `true` for port 587, `false` for unencrypted or if using implicit TLS on port 465 with a different mechanism. |
 | `ERROR_NOTIFY_EMAILS` | string | (empty) | No | Comma-separated list of email addresses to receive error notifications. Typically superuser email addresses. |
 
+### Content Moderation
+
+| Variable | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `MODERATION_ENABLED` | boolean | `true` | No | Enable or disable the content moderation system. When `false`, all moderation checks are skipped and messages pass through unchecked. |
+| `MODERATION_CUSTOM_BLOCKED` | string | (empty) | No | Comma-separated list of custom blocked words. Each word is matched as a case-insensitive whole word (word boundary detection). Violations are logged under the `custom_blocked` category. |
+
 ---
 
-## 17. Troubleshooting
+## 18. Troubleshooting
 
 ### Common Issues and Solutions
 
@@ -1959,7 +2106,7 @@ To increase log verbosity, set `LOG_LEVEL=debug` in `.env`.
 
 ---
 
-## 18. Security Considerations
+## 19. Security Considerations
 
 ### Secrets Management
 
@@ -2027,3 +2174,4 @@ The deploy script (`scripts/deploy.sh`) explicitly excludes these paths when syn
 - **Input validation**: All API inputs are validated by Pydantic models. The `RetrievalBackend` enum restricts backend values to the four valid options. PocketBase field constraints (min/max on numbers, select values) provide an additional validation layer.
 - **Error messages**: The error middleware returns a generic "Internal server error" message to clients, never exposing stack traces or internal details. Detailed error information is sent only to configured email recipients.
 - **Token handling**: JWTs are never logged. The PocketBase admin token is cached in memory (not on disk). User tokens are validated on every request via PocketBase's auth-refresh endpoint, which also checks for token revocation.
+- **Content moderation**: The built-in content moderation system (`app/services/moderation.py`) acts as an additional safety layer, scanning both user inputs and bot outputs for harmful content across 7 categories (sexual harassment, sexually explicit material, hate speech, threats/violence, self-harm, child exploitation, and doxxing/privacy violations). This is a regex-based first line of defense and should not be considered a replacement for a dedicated content moderation API in high-risk deployments. Custom blocked words can be added via the `MODERATION_CUSTOM_BLOCKED` environment variable without code changes. All violations are logged to the `moderation_logs` PocketBase collection for audit purposes, and superusers can review them via the admin API. The moderation system can be disabled entirely by setting `MODERATION_ENABLED=false` in `.env`.

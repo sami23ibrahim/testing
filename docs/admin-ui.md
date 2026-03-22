@@ -91,6 +91,24 @@ If SMTP is configured in `.env`, superusers listed in `ERROR_NOTIFY_EMAILS` rece
 - User who triggered it
 - Full Python traceback
 
+### 6. Review Moderation Logs
+
+The platform automatically blocks harmful content (harassment, hate speech, threats, etc.). View all moderation violations:
+
+```bash
+GET /api/admin/moderation-logs?page=1&per_page=50
+Authorization: Bearer YOUR_TOKEN
+```
+
+Each log entry shows:
+- **Category**: which safety filter was triggered (e.g. `sexual_harassment`, `hate_speech`)
+- **Direction**: whether the blocked content was user `input` or bot `output`
+- **User email**: who triggered the violation
+- **Matched pattern**: the specific phrase that was caught
+- **Text snippet**: first 500 chars of the blocked message
+
+You can also view these directly in PocketBase admin under the `moderation_logs` collection.
+
 ## Differences from the User UI
 
 | Feature | User UI (`/`) | Admin UI (`/admin`) |
@@ -100,4 +118,5 @@ If SMTP is configured in `.env`, superusers listed in `ERROR_NOTIFY_EMAILS` rece
 | Backend badge | No | Yes |
 | Source citations | No | Yes |
 | Stats endpoint | No | Yes (via API) |
+| Moderation log access | No | Yes (via API) |
 | Branding | Full | Partial (name + icon) |

@@ -84,7 +84,8 @@ See [docs/user-ui.md](docs/user-ui.md) and [docs/admin-ui.md](docs/admin-ui.md) 
 │       ├── pocketbase.py     # PocketBase REST client
 │       ├── chat.py           # Chat orchestration: config -> retrieve -> LLM
 │       ├── stats.py          # Usage statistics from PocketBase
-│       └── notifier.py       # Error email notifications to superusers
+│       ├── notifier.py       # Error email notifications to superusers
+│       ├── moderation.py      # Content moderation (harassment, hate speech, threats)
 ├── pb/
 │   └── pb_migrations/
 │       └── 1_create_collections.js   # Creates users role, rag_configs, chat_history
@@ -467,6 +468,7 @@ Used when `retrieval_backend` = `vector_search`.
 | PATCH | `/api/admin/rag-configs/{id}` | Update a config |
 | DELETE | `/api/admin/rag-configs/{id}` | Delete a config |
 | GET | `/api/admin/stats` | Usage statistics (users, chats, backends) |
+| GET | `/api/admin/moderation-logs` | View content moderation violation logs |
 
 ### Utility
 
@@ -494,6 +496,14 @@ The migration at `pb/pb_migrations/1_create_collections.js` creates:
 - `backend` — Which backend was used
 - `sources` — JSON array of retrieval sources
 - `config_id` — Which rag_config was used
+
+**moderation_logs**:
+- `user` — Relation to users collection
+- `user_email` — Email of the user who triggered the violation
+- `text_snippet` — First 500 chars of the blocked text
+- `category` — Which moderation category was triggered
+- `matched_pattern` — The specific pattern that matched
+- `direction` — `input` (user message) or `output` (bot response)
 
 ## Environment Variables Reference
 
@@ -532,6 +542,8 @@ The migration at `pb/pb_migrations/1_create_collections.js` creates:
 | `SMTP_FROM` | _(empty)_ | Sender email address |
 | `SMTP_TLS` | `true` | Use STARTTLS |
 | `ERROR_NOTIFY_EMAILS` | _(empty)_ | Comma-separated emails to receive error notifications |
+| `MODERATION_ENABLED` | `true` | Enable/disable content moderation |
+| `MODERATION_CUSTOM_BLOCKED` | _(empty)_ | Comma-separated extra words to block |
 
 `.env` values are used as fallback defaults. PocketBase config values override them per-config.
 
@@ -602,6 +614,31 @@ When an unhandled error occurs in any API endpoint, the configured superusers re
 - Timestamp and domain
 
 Leave `SMTP_HOST` empty to disable email notifications.
+
+## Content Moderation
+
+All messages are checked against safety filters before processing. Both user inputs and bot outputs are scanned.
+
+**Blocked categories:**
+
+| Category | What it catches |
+|---|---|
+| `sexual_harassment` | Unwanted sexual requests, objectification |
+| `sexually_explicit` | Pornography requests, erotic roleplay |
+| `hate_speech` | Slurs, genocide advocacy, racial supremacy |
+| `threats_violence` | Death threats, bomb-making, mass violence |
+| `self_harm` | Suicide methods, self-injury instructions |
+| `child_exploitation` | Any CSAM-related content |
+| `doxxing_privacy` | Address/SSN hunting, swatting |
+
+Configure in `.env`:
+
+```env
+MODERATION_ENABLED=true                       # set to false to disable
+MODERATION_CUSTOM_BLOCKED=badword1,badword2   # add extra blocked words
+```
+
+Blocked messages return a safe user-facing message. All violations are logged to the `moderation_logs` PocketBase collection and viewable via `GET /api/admin/moderation-logs`.
 
 ## Switching Between Backends
 
