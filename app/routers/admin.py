@@ -84,3 +84,25 @@ async def delete_config(config_id: str, _user: dict = Depends(require_superuser)
 @router.get("/stats")
 async def stats(_user: dict = Depends(require_superuser)):
     return await get_stats()
+
+
+@router.get("/moderation-logs")
+async def moderation_logs(
+    page: int = 1,
+    per_page: int = 50,
+    _user: dict = Depends(require_superuser),
+):
+    """List moderation violation logs (most recent first)."""
+    import httpx
+    for attempt in range(2):
+        token = await pb._admin_auth(force_refresh=attempt > 0)
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{pb.base_url}/api/collections/moderation_logs/records",
+                params={"page": page, "perPage": per_page},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if resp.status_code == 401 and attempt == 0:
+                continue
+            resp.raise_for_status()
+            return resp.json()

@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     welcome_subtitle: str = "Ask me anything."
     powered_by_text: str = ""
 
+    # Content moderation
+    moderation_enabled: bool = True
+    moderation_custom_blocked: str = ""  # comma-separated extra words to block
+
     # Error email notifications
     smtp_host: str = ""
     smtp_port: int = 587

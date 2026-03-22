@@ -657,7 +657,16 @@
 
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
-          throw new Error(err.detail || `Error ${resp.status}`);
+          const detail = err.detail;
+          if (typeof detail === 'object' && detail.message) {
+            addMessage(detail.message, 'bot');
+          } else {
+            throw new Error(detail || `Error ${resp.status}`);
+          }
+          typing.style.display = 'none';
+          btn.disabled = false;
+          input.focus();
+          return;
         }
 
         const data = await resp.json();

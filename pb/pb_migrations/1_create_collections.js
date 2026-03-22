@@ -77,8 +77,29 @@ migrate(
     chatHistory.fields.push(new Field({ name: "sources", type: "json", required: false }));
     chatHistory.fields.push(new Field({ name: "config_id", type: "text", required: false }));
     app.save(chatHistory);
+
+    // ── Create "moderation_logs" collection ──
+    const moderationLogs = new Collection({
+      name: "moderation_logs",
+      type: "base",
+      listRule: "@request.auth.role = 'superuser'",
+      viewRule: "@request.auth.role = 'superuser'",
+      createRule: "",  // any authenticated request (server uses admin token)
+      updateRule: null,
+      deleteRule: "@request.auth.role = 'superuser'",
+    });
+    moderationLogs.fields.push(new Field({ name: "user", type: "relation", required: false, collectionId: users.id, maxSelect: 1 }));
+    moderationLogs.fields.push(new Field({ name: "user_email", type: "text", required: false }));
+    moderationLogs.fields.push(new Field({ name: "text_snippet", type: "text", required: false }));
+    moderationLogs.fields.push(new Field({ name: "category", type: "text", required: true }));
+    moderationLogs.fields.push(new Field({ name: "matched_pattern", type: "text", required: false }));
+    moderationLogs.fields.push(new Field({ name: "direction", type: "select", required: true, values: ["input", "output"] }));
+    app.save(moderationLogs);
   },
   (app) => {
+    const moderationLogs = app.findCollectionByNameOrId("moderation_logs");
+    app.delete(moderationLogs);
+
     const chatHistory = app.findCollectionByNameOrId("chat_history");
     app.delete(chatHistory);
 

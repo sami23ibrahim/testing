@@ -9,8 +9,8 @@ class PocketBaseClient:
         self.base_url = settings.pocketbase_url
         self._admin_token: str | None = None
 
-    async def _admin_auth(self) -> str:
-        if self._admin_token:
+    async def _admin_auth(self, force_refresh: bool = False) -> str:
+        if self._admin_token and not force_refresh:
             return self._admin_token
         async with httpx.AsyncClient() as client:
             resp = await client.post(

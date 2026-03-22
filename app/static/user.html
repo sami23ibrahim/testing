@@ -250,7 +250,16 @@
           body: JSON.stringify({ query }),
         });
         if (resp.status === 401) { logout(); return; }
-        if (!resp.ok) { const err = await resp.json().catch(()=>({})); throw new Error(err.detail || `Error ${resp.status}`); }
+        if (!resp.ok) {
+          const err = await resp.json().catch(()=>({}));
+          const detail = err.detail;
+          if (typeof detail === 'object' && detail.message) {
+            addMessage(detail.message, 'bot');
+          } else {
+            throw new Error(detail || `Error ${resp.status}`);
+          }
+          return;
+        }
         const data = await resp.json();
         addMessage(data.answer, 'bot');
       } catch (e) {
