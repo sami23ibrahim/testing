@@ -1,0 +1,40 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    depends_on:
+      - fastapi
+      - pocketbase
+
+  fastapi:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./credentials:/app/credentials:ro
+    depends_on:
+      - pocketbase
+
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - pb_data:/pb/pb_data
+      - ./pb/pb_migrations:/pb/pb_migrations
+    command: serve --http=0.0.0.0:8090
+
+volumes:
+  caddy_data:
+  caddy_config:
+  pb_data:

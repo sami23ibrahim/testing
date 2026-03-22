@@ -1,0 +1,21 @@
+# Local dev override — run with:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+#
+# Exposes FastAPI on :8000 directly (no Caddy needed for localhost testing).
+# PocketBase stays on :8090.
+
+services:
+  caddy:
+    profiles: ["production"]   # disabled locally — only starts with --profile production
+
+  fastapi:
+    ports:
+      - "8000:8000"
+    environment:
+      POCKETBASE_URL: http://pocketbase:8090
+    volumes:
+      - ./app:/app/app   # live-reload source changes
+
+  pocketbase:
+    ports:
+      - "8090:8090"

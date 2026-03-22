@@ -1,0 +1,13 @@
+.env
+credentials/
+__pycache__/
+*.pyc
+.venv/
+pb/pb_data/
+pb/pb_public/
+pb/pocketbase.exe
+*.log
+.idea/
+.vscode/
+.claude/
+.pytest_cache/

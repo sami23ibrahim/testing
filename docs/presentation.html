@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Chatbot Platform — Presentation</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0f1117;--bg2:#161822;--bg3:#1e2030;
+    --accent:#6366f1;--accent2:#818cf8;--accent-glow:rgba(99,102,241,.15);
+    --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+    --green:#22c55e;--amber:#f59e0b;--red:#ef4444;--cyan:#06b6d4;
+    --radius:12px;
+  }
+  html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text)}
+
+  /* ── Slide deck container ── */
+  #deck{position:relative;width:100%;height:100%}
+  .slide{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;
+    padding:60px 80px;
+    opacity:0;transform:translateX(40px);
+    transition:opacity .45s ease,transform .45s ease;
+    pointer-events:none;
+    overflow-y:auto;
+  }
+  .slide.active{opacity:1;transform:translateX(0);pointer-events:auto}
+  .slide.prev{opacity:0;transform:translateX(-40px)}
+
+  /* ── Slide counter ── */
+  #counter{
+    position:fixed;bottom:28px;right:40px;
+    font-size:14px;color:var(--text3);font-variant-numeric:tabular-nums;
+    z-index:100;user-select:none;
+  }
+
+  /* ── Progress bar ── */
+  #progress{position:fixed;top:0;left:0;height:3px;background:var(--accent);transition:width .4s ease;z-index:100}
+
+  /* ── Navigation hints ── */
+  #nav-hint{
+    position:fixed;bottom:28px;left:40px;
+    font-size:13px;color:var(--text3);z-index:100;user-select:none;
+  }
+
+  /* ── Typography ── */
+  h1{font-size:clamp(32px,4vw,56px);font-weight:800;line-height:1.15;letter-spacing:-.02em;margin-bottom:16px}
+  h2{font-size:clamp(26px,3vw,42px);font-weight:700;line-height:1.2;letter-spacing:-.01em;margin-bottom:24px}
+  h3{font-size:20px;font-weight:600;margin-bottom:12px;color:var(--accent2)}
+  p,li{font-size:18px;line-height:1.65;color:var(--text2)}
+  .subtitle{font-size:22px;color:var(--text2);margin-bottom:8px}
+  .small{font-size:15px;color:var(--text3)}
+  .accent{color:var(--accent2)}
+  .green{color:var(--green)}.amber{color:var(--amber)}.red{color:var(--red)}.cyan{color:var(--cyan)}
+  strong{color:var(--text);font-weight:600}
+  code{
+    background:var(--bg3);padding:2px 8px;border-radius:6px;
+    font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:.88em;color:var(--accent2);
+  }
+
+  /* ── Slide content wrappers ── */
+  .slide-inner{max-width:960px;width:100%}
+  .center{text-align:center}
+
+  ul{list-style:none;padding:0}
+  ul li{position:relative;padding-left:28px;margin-bottom:12px}
+  ul li::before{
+    content:"";position:absolute;left:0;top:10px;
+    width:8px;height:8px;border-radius:50%;background:var(--accent);
+  }
+  ol{padding-left:28px}
+  ol li{margin-bottom:12px}
+  ol li::marker{color:var(--accent2);font-weight:700}
+
+  /* ── Grid / Card layouts ── */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:24px;width:100%}
+  .grid4{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%}
+  .card{
+    background:var(--bg2);border:1px solid rgba(255,255,255,.06);
+    border-radius:var(--radius);padding:24px;
+    transition:border-color .3s;
+  }
+  .card:hover{border-color:var(--accent)}
+  .card h3{margin-bottom:8px}
+  .card p{font-size:15px}
+
+  /* ── Table ── */
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th,td{text-align:left;padding:10px 16px;font-size:15px;border-bottom:1px solid rgba(255,255,255,.06)}
+  th{color:var(--accent2);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+  td{color:var(--text2)}
+
+  /* ── Diagram box ── */
+  .diagram{
+    background:var(--bg2);border:1px solid rgba(255,255,255,.08);
+    border-radius:var(--radius);padding:28px 32px;
+    font-family:"Cascadia Code","Fira Code",Consolas,monospace;
+    font-size:14px;line-height:1.7;white-space:pre;overflow-x:auto;
+    color:var(--text2);
+  }
+  .diagram .hl{color:var(--accent2);font-weight:700}
+  .diagram .g{color:var(--green)}
+  .diagram .a{color:var(--amber)}
+
+  /* ── Flow steps ── */
+  .flow{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:16px}
+  .flow-step{
+    background:var(--bg2);border:1px solid rgba(255,255,255,.06);
+    border-radius:var(--radius);padding:14px 20px;
+    font-size:14px;color:var(--text);text-align:center;min-width:120px;
+    position:relative;
+  }
+  .flow-arrow{display:flex;align-items:center;color:var(--accent);font-size:20px;font-weight:700}
+
+  /* ── Tag / Badge ── */
+  .badge{
+    display:inline-block;background:var(--accent-glow);color:var(--accent2);
+    padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;
+    border:1px solid rgba(99,102,241,.25);margin:4px 2px;
+  }
+
+  /* ── Tree ── */
+  .tree{
+    background:var(--bg2);border:1px solid rgba(255,255,255,.08);
+    border-radius:var(--radius);padding:24px 28px;
+    font-family:"Cascadia Code","Fira Code",Consolas,monospace;
+    font-size:13px;line-height:1.8;white-space:pre;overflow-x:auto;
+    color:var(--text2);
+  }
+
+  /* ── Two-column side by side ── */
+  .side-by-side{display:grid;grid-template-columns:1fr 1fr;gap:32px;width:100%;align-items:start}
+
+  /* ── Config levels ── */
+  .level-bar{
+    display:flex;align-items:center;gap:16px;
+    background:var(--bg2);border-radius:var(--radius);padding:16px 20px;
+    margin-bottom:12px;border-left:3px solid var(--accent);
+  }
+  .level-bar .num{
+    background:var(--accent);color:#fff;width:32px;height:32px;
+    border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:14px;flex-shrink:0;
+  }
+
+  /* ── Responsive ── */
+  @media(max-width:800px){
+    .slide{padding:32px 24px}
+    .grid2,.grid4,.side-by-side{grid-template-columns:1fr}
+    h1{font-size:28px}h2{font-size:24px}
+    .diagram,.tree{font-size:11px;padding:16px}
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+<div id="deck">
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 1 — TITLE
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide active" data-slide="1">
+  <div class="slide-inner center">
+    <div style="margin-bottom:32px">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="margin-bottom:16px">
+        <rect width="64" height="64" rx="16" fill="#6366f1"/>
+        <path d="M20 44V20h8l8 14 8-14h8v24h-7V30l-6 10h-6l-6-10v14z" fill="#fff" opacity=".9"/>
+      </svg>
+    </div>
+    <h1>RAG Chatbot Platform</h1>
+    <p class="subtitle">A Multi-Backend Retrieval-Augmented Generation System</p>
+    <p class="small" style="margin-top:24px">
+      Built with <span class="badge">FastAPI</span>
+      <span class="badge">PocketBase</span>
+      <span class="badge">Caddy</span>
+      <span class="badge">Google Cloud</span>
+    </p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 2 — THE PROBLEM
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="2">
+  <div class="slide-inner">
+    <h2>The Problem</h2>
+    <ul>
+      <li><strong>Data-grounded AI</strong> &mdash; Organizations need chatbots that answer from <em>their own</em> data, not generic training data</li>
+      <li><strong>Multiple retrieval strategies</strong> &mdash; Different data sources (corpora, search engines, vector DBs) require different backends</li>
+      <li><strong>Easy multi-team deployment</strong> &mdash; Need to spin up instances across VMs without re-engineering each one</li>
+      <li><strong>Admin control without code changes</strong> &mdash; System prompts, models, and retrieval settings should be editable at runtime</li>
+      <li><strong>Two audiences</strong> &mdash; End-users want simplicity; admins need full control and visibility</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 3 — SOLUTION OVERVIEW
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="3">
+  <div class="slide-inner">
+    <h2>Solution Overview</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>Switchable Backends</h3>
+        <p>Four retrieval modes &mdash; RAG Store, Vertex Search, Vector Search, or direct Gemini &mdash; switchable per-request, per-config, or per-environment.</p>
+      </div>
+      <div class="card">
+        <h3>Web-Based Config</h3>
+        <p>PocketBase stores all RAG configurations (29 fields each). Changes take effect immediately &mdash; no restart required.</p>
+      </div>
+      <div class="card">
+        <h3>Two UIs</h3>
+        <p><strong>/</strong> &mdash; Clean user chat. <strong>/admin</strong> &mdash; Full admin with backend selectors, config pickers, and source citations.</p>
+      </div>
+      <div class="card">
+        <h3>One-Command Deploy</h3>
+        <p>Docker Compose orchestration with Caddy auto-HTTPS. Clone, configure <code>.env</code>, run <code>setup.sh</code>. Customizable branding per clone.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 4 — ARCHITECTURE
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="4">
+  <div class="slide-inner">
+    <h2>Architecture</h2>
+    <div class="diagram" style="text-align:center"><span class="hl">               Browser</span>
+                  |
+                  v
+         +-----------------+
+         |  <span class="a">Caddy</span>           |   auto-HTTPS, reverse proxy
+         +-----------------+
+                  |
+        +---------+---------+
+        v                   v
+  +------------+     +-------------+
+  |  <span class="hl">FastAPI</span>   |&lt;---&gt;| <span class="g">PocketBase</span>  |
+  |   :8000    |     |    :8090    |
+  +-----+------+     +-------------+
+        |              Users, roles,
+        |              RAG configs,
+        v              chat history
+  +---------------------+
+  |  <span class="a">Google Cloud</span>        |
+  |  +---------------+  |
+  |  | Gemini LLM    |  |
+  |  +---------------+  |
+  |  | RAG Store     |  |
+  |  | Vertex Search |  |
+  |  | Vector Search |  |
+  |  +---------------+  |
+  +---------------------+</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 5 — TECHNOLOGY STACK
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="5">
+  <div class="slide-inner">
+    <h2>Technology Stack</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>FastAPI</h3>
+        <p>Async Python API framework. Serves chat endpoint, admin CRUD, auth, and static UIs. Auto-generated Swagger docs at <code>/api/docs</code>.</p>
+      </div>
+      <div class="card">
+        <h3>PocketBase</h3>
+        <p>Lightweight Go backend providing JWT auth, user management, RAG config storage, and chat history &mdash; all via REST API.</p>
+      </div>
+      <div class="card">
+        <h3>Caddy</h3>
+        <p>Auto-HTTPS reverse proxy. Provisions TLS certificates via Let's Encrypt when a domain is configured. Zero-config SSL.</p>
+      </div>
+      <div class="card">
+        <h3>Docker Compose</h3>
+        <p>Orchestrates all three services. One <code>docker compose up</code> starts the full stack. Local and production compose files included.</p>
+      </div>
+      <div class="card">
+        <h3>Google Cloud Vertex AI</h3>
+        <p>Gemini LLM for generation. RAG Store, Vertex AI Search, and Vector Search for retrieval. Accessed via Python SDK.</p>
+      </div>
+      <div class="card">
+        <h3>Single-Page HTML UIs</h3>
+        <p>Two self-contained HTML files &mdash; no build step, no JS framework. Inline CSS/JS served directly by FastAPI.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 6 — RETRIEVAL BACKENDS
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="6">
+  <div class="slide-inner">
+    <h2>Retrieval Backends</h2>
+    <div class="grid4">
+      <div class="card" style="border-top:3px solid var(--text3)">
+        <h3 style="color:var(--text3)">None (Direct Gemini)</h3>
+        <p>Chat with system prompt only. No retrieval. Ideal for general-purpose bots or when data is baked into the prompt.</p>
+        <p style="margin-top:8px"><code>backend: "none"</code></p>
+      </div>
+      <div class="card" style="border-top:3px solid var(--green)">
+        <h3 style="color:var(--green)">RAG Store</h3>
+        <p>Vertex AI managed RAG corpus. Upload documents, automatic chunking and embedding. Similarity-based retrieval.</p>
+        <p style="margin-top:8px"><code>backend: "rag_store"</code></p>
+      </div>
+      <div class="card" style="border-top:3px solid var(--cyan)">
+        <h3 style="color:var(--cyan)">Vertex AI Search</h3>
+        <p>Discovery Engine with query expansion, spell correction, boost specs, and structured snippets. Enterprise-grade search.</p>
+        <p style="margin-top:8px"><code>backend: "vertex_search"</code></p>
+      </div>
+      <div class="card" style="border-top:3px solid var(--amber)">
+        <h3 style="color:var(--amber)">Vector Search</h3>
+        <p>Matching Engine with custom embeddings. ANN search, namespace filters, configurable leaf node fractions.</p>
+        <p style="margin-top:8px"><code>backend: "vector_search"</code></p>
+      </div>
+    </div>
+    <p class="center small" style="margin-top:20px">Switchable <strong>per-request</strong>, <strong>per-config</strong>, or <strong>per-environment</strong> &mdash; priority: request &gt; PocketBase config &gt; .env default</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 7 — REQUEST FLOW
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="7">
+  <div class="slide-inner">
+    <h2>Request Flow</h2>
+    <div class="diagram" style="font-size:13px;text-align:left">
+<span class="hl">User sends message</span>
+       |
+       v
+  +--------------------+
+  |  <span class="a">Auth check</span>        |  Validate JWT token via PocketBase
+  +--------------------+
+       |
+       v
+  +--------------------+
+  |  <span class="g">Load PB config</span>    |  Fetch active rag_config (or by config_id)
+  +--------------------+
+       |
+       v
+  +--------------------+
+  |  <span class="hl">Choose backend</span>    |  per-request &gt; PB config &gt; .env default
+  +--------------------+
+       |
+       +--------- backend == "none" ? --------+
+       |                                       |
+       v                                       v
+  +--------------------+              +--------------------+
+  |  <span class="g">Retrieve context</span>  |              |  Skip retrieval     |
+  |  (RAG/Search/Vec)  |              +--------------------+
+  +--------------------+                       |
+       |                                       |
+       v                                       v
+  +--------------------+              +--------------------+
+  |  <span class="a">Build prompt</span>      |              |  <span class="a">System prompt only</span> |
+  |  context + query   |              +--------------------+
+  +--------------------+                       |
+       |                                       |
+       +---------------------------------------+
+       v
+  +--------------------+
+  |  <span class="hl">Call Gemini LLM</span>   |  generation_config: temp, top_k, max_tokens
+  +--------------------+
+       |
+       v
+  +--------------------+
+  |  <span class="g">Return answer</span>     |  + sources (if RAG) + config_id + backend
+  +--------------------+</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 8 — POCKETBASE INTEGRATION
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="8">
+  <div class="slide-inner">
+    <h2>PocketBase Integration</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>User Management</h3>
+        <ul>
+          <li>Built-in <code>users</code> collection extended with <code>role</code> field</li>
+          <li>Two roles: <code>user</code> and <code>superuser</code></li>
+          <li>JWT-based authentication</li>
+          <li>Registration and login via FastAPI endpoints</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>RAG Config Storage</h3>
+        <ul>
+          <li><strong>29 fields</strong> per configuration record</li>
+          <li>Covers all 4 backend types</li>
+          <li>One <code>is_active</code> config used as default</li>
+          <li>Changes take effect on <strong>next request</strong> &mdash; no restart</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Chat History</h3>
+        <ul>
+          <li>Every query/answer pair stored</li>
+          <li>Tracks backend used, sources returned, config_id</li>
+          <li>Linked to user via relation</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Auto-Migration</h3>
+        <ul>
+          <li>Collections created via JS migration on first boot</li>
+          <li>Schema versioned in <code>pb/pb_migrations/</code></li>
+          <li>PocketBase admin UI at <code>/pb/_/</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 9 — TWO USER INTERFACES
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="9">
+  <div class="slide-inner">
+    <h2>Two User Interfaces</h2>
+    <div class="side-by-side">
+      <div class="card" style="border-top:3px solid var(--accent)">
+        <h3 style="text-align:center">User UI &mdash; <code>/</code></h3>
+        <ul>
+          <li>Clean, branded chat interface</li>
+          <li>Custom bot name, icon, welcome text</li>
+          <li>No backend selectors or admin controls</li>
+          <li>No source citations shown</li>
+          <li>Optional "Powered by" footer</li>
+          <li>Register / login / chat &mdash; that's it</li>
+        </ul>
+        <p class="small center" style="margin-top:12px">Designed for <strong>end users</strong></p>
+      </div>
+      <div class="card" style="border-top:3px solid var(--amber)">
+        <h3 style="text-align:center">Admin UI &mdash; <code>/admin</code></h3>
+        <ul>
+          <li>Backend dropdown (None / RAG / Search / Vector)</li>
+          <li>Config picker from PocketBase records</li>
+          <li>Collapsible source citations with scores</li>
+          <li>Backend badge in top bar</li>
+          <li>Access to stats API</li>
+          <li>Full RAG config CRUD via API</li>
+        </ul>
+        <p class="small center" style="margin-top:12px">Designed for <strong>superusers</strong></p>
+      </div>
+    </div>
+    <p class="center small" style="margin-top:20px">Both share the same auth system. Role determines access.</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 10 — CONFIGURATION MANAGEMENT
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="10">
+  <div class="slide-inner">
+    <h2>Configuration Management</h2>
+    <p style="margin-bottom:20px">Three levels of configuration, each overriding the previous:</p>
+    <div class="level-bar">
+      <div class="num">1</div>
+      <div><strong>.env defaults</strong> &mdash; Base configuration for the entire instance. Model, temperature, backend resource names.</div>
+    </div>
+    <div class="level-bar" style="border-left-color:var(--green)">
+      <div class="num" style="background:var(--green)">2</div>
+      <div><strong>PocketBase config</strong> &mdash; 29-field <code>rag_configs</code> record overrides .env per-setting. Active config used by default.</div>
+    </div>
+    <div class="level-bar" style="border-left-color:var(--amber)">
+      <div class="num" style="background:var(--amber)">3</div>
+      <div><strong>Per-request override</strong> &mdash; Pass <code>backend</code>, <code>config_id</code>, or <code>top_k</code> in the chat request body.</div>
+    </div>
+    <div style="margin-top:28px">
+      <h3>Key Parameters</h3>
+      <div class="grid2" style="margin-top:8px">
+        <div>
+          <p><strong>LLM:</strong> <code>llm_model</code>, <code>temperature</code>, <code>top_p</code>, <code>top_k</code>, <code>max_output_tokens</code>, <code>system_prompt</code></p>
+        </div>
+        <div>
+          <p><strong>Backend-specific:</strong> corpus names, serving configs, filters, boost specs, embedding models, distance thresholds</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 11 — BRANDING & CUSTOMIZATION
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="11">
+  <div class="slide-inner">
+    <h2>Branding &amp; Customization</h2>
+    <div class="grid2">
+      <div>
+        <ul>
+          <li><strong>Custom bot name</strong> &mdash; page title, login heading, top bar</li>
+          <li><strong>Custom icon URL</strong> &mdash; login screen, welcome area, favicon</li>
+          <li><strong>Welcome text</strong> &mdash; title and subtitle on the welcome screen</li>
+          <li><strong>Powered-by footer</strong> &mdash; optional text at bottom of user UI</li>
+          <li>Configured entirely via <code>.env</code> &mdash; no code changes</li>
+          <li>Served dynamically via <code>GET /api/branding</code> (public, no auth)</li>
+        </ul>
+      </div>
+      <div class="card" style="background:var(--bg3)">
+        <h3 style="font-size:14px;color:var(--text3);margin-bottom:12px">.env example</h3>
+        <div style="font-family:monospace;font-size:13px;line-height:1.9;color:var(--text2)">
+          <span class="accent">BOT_NAME</span>=Acme Support<br>
+          <span class="accent">BOT_ICON_URL</span>=https://example.com/logo.png<br>
+          <span class="accent">WELCOME_TITLE</span>=Welcome to Acme Support<br>
+          <span class="accent">WELCOME_SUBTITLE</span>=Ask about products or billing<br>
+          <span class="accent">POWERED_BY_TEXT</span>=Powered by Acme AI
+        </div>
+        <p class="small" style="margin-top:16px">Same codebase, different identity per team.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 12 — DEPLOYMENT
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="12">
+  <div class="slide-inner">
+    <h2>Deployment Options</h2>
+    <table>
+      <thead>
+        <tr><th>Mode</th><th>Command</th><th>Details</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Local (Docker)</strong></td>
+          <td><code>bash scripts/run_local.sh docker</code></td>
+          <td>FastAPI + PocketBase, no Caddy, ports exposed</td>
+        </tr>
+        <tr>
+          <td><strong>Local (Bare)</strong></td>
+          <td><code>bash scripts/run_local.sh bare</code></td>
+          <td>Direct Python + PocketBase binary, hot-reload</td>
+        </tr>
+        <tr>
+          <td><strong>VM Setup</strong></td>
+          <td><code>bash scripts/setup.sh</code></td>
+          <td>Installs Docker, copies .env, starts full stack with Caddy</td>
+        </tr>
+        <tr>
+          <td><strong>Remote Deploy</strong></td>
+          <td><code>bash scripts/deploy.sh &lt;instance&gt; &lt;zone&gt;</code></td>
+          <td>Syncs code via <code>gcloud compute scp</code>, runs setup remotely</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="card" style="margin-top:24px;text-align:center">
+      <p><strong>Auto-HTTPS:</strong> Set <code>DOMAIN=chat.example.com</code> in <code>.env</code> and Caddy provisions TLS certificates automatically via Let's Encrypt.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 13 — MONITORING & NOTIFICATIONS
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="13">
+  <div class="slide-inner">
+    <h2>Monitoring &amp; Notifications</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>Stats Endpoint</h3>
+        <p style="margin-bottom:12px"><code>GET /api/admin/stats</code> (superuser only)</p>
+        <ul>
+          <li>Total users, superusers, regular users</li>
+          <li>Total chats and breakdown by backend</li>
+          <li>Last 10 recent queries</li>
+          <li>Active config info</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Error Email Notifications</h3>
+        <p style="margin-bottom:12px">SMTP-based alerts to configured superusers</p>
+        <ul>
+          <li>Triggered on unhandled API errors</li>
+          <li>HTML emails with full Python traceback</li>
+          <li>Includes endpoint, user info, timestamp</li>
+          <li>Configurable via <code>.env</code> SMTP settings</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <h3>Stats Response Example</h3>
+      <div style="font-family:monospace;font-size:13px;line-height:1.7;color:var(--text2)">
+        { "users": { "total": 42, "superusers": 3, "regular": 39 },<br>
+        &nbsp;&nbsp;"chats": { "total": 1280, "by_backend": { "none": 800, "rag_store": 300, ... } },<br>
+        &nbsp;&nbsp;"recent_chats": [ ... last 10 ... ],<br>
+        &nbsp;&nbsp;"configs": { "total": 4, "active": { "name": "Default", "retrieval_backend": "none" } } }
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 14 — TESTING
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="14">
+  <div class="slide-inner">
+    <h2>Testing</h2>
+    <div style="margin-bottom:24px">
+      <p style="font-size:20px"><strong>41 automated tests</strong> across 5 test suites</p>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Suite</th><th>What It Tests</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>test_health.py</code></td><td>FastAPI + PocketBase health checks, UI serving</td></tr>
+        <tr><td><code>test_auth.py</code></td><td>Login, register, token validation flows</td></tr>
+        <tr><td><code>test_rag_configs.py</code></td><td>Full CRUD for all 4 backend types with all parameters</td></tr>
+        <tr><td><code>test_retrieval_params.py</code></td><td>Unit tests for <code>RetrievalParams</code> merging (PB config over .env)</td></tr>
+        <tr><td><code>test_chat_integration.py</code></td><td>Config round-trips, active config selection, input validation</td></tr>
+      </tbody>
+    </table>
+    <div class="card" style="margin-top:24px;text-align:center">
+      <p>Run: <code>python -m pytest tests/ -v</code></p>
+      <p class="small" style="margin-top:8px">Requires both PocketBase (:8090) and FastAPI (:8000) running locally</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 15 — SECURITY
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="15">
+  <div class="slide-inner">
+    <h2>Security</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>Authentication</h3>
+        <ul>
+          <li>PocketBase JWT tokens for all API calls</li>
+          <li>Tokens validated on every request</li>
+          <li>Registration creates <code>user</code> role by default</li>
+          <li>Superuser promotion via PocketBase admin only</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Authorization</h3>
+        <ul>
+          <li>Role-based access: <code>user</code> vs <code>superuser</code></li>
+          <li>Admin endpoints require superuser role</li>
+          <li>User UI hides admin controls entirely</li>
+          <li>Enforced at both UI and API layers</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Secrets Management</h3>
+        <ul>
+          <li><code>.env</code> file never committed to git</li>
+          <li>GCP credentials mounted as volume</li>
+          <li><code>deploy.sh</code> excludes <code>.env</code> and <code>credentials/</code></li>
+          <li>PocketBase admin password only in .env</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Network</h3>
+        <ul>
+          <li>Caddy auto-HTTPS via Let's Encrypt</li>
+          <li>TLS certificates provisioned automatically</li>
+          <li>CORS middleware for local development</li>
+          <li>Internal services not exposed in production</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 16 — PROJECT STRUCTURE
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="16">
+  <div class="slide-inner">
+    <h2>Project Structure</h2>
+    <div class="side-by-side">
+      <div class="tree">
+<span class="accent">.</span>
+├── .env.example          <span style="color:var(--text3)"># env template</span>
+├── Caddyfile             <span style="color:var(--text3)"># reverse proxy</span>
+├── Dockerfile            <span style="color:var(--text3)"># Python 3.12</span>
+├── docker-compose.yml    <span style="color:var(--text3)"># production</span>
+├── requirements.txt
+├── <span class="accent">app/</span>
+│   ├── main.py           <span style="color:var(--text3)"># FastAPI entry</span>
+│   ├── config.py         <span style="color:var(--text3)"># Pydantic settings</span>
+│   ├── auth.py           <span style="color:var(--text3)"># JWT middleware</span>
+│   ├── <span class="accent">static/</span>
+│   │   ├── index.html    <span style="color:var(--text3)"># Admin UI</span>
+│   │   └── user.html     <span style="color:var(--text3)"># User UI</span>
+│   ├── <span class="accent">routers/</span>
+│   │   ├── auth_routes.py
+│   │   ├── chat.py
+│   │   └── admin.py
+│   ├── <span class="accent">retrieval/</span>
+│   │   ├── base.py       <span style="color:var(--text3)"># ABC + params</span>
+│   │   ├── rag_store.py
+│   │   ├── vertex_search.py
+│   │   └── vector_search.py
+│   └── <span class="accent">services/</span>
+│       ├── pocketbase.py
+│       ├── chat.py       <span style="color:var(--text3)"># orchestration</span>
+│       ├── stats.py
+│       └── notifier.py</div>
+      <div class="tree">
+├── <span class="accent">pb/</span>
+│   └── pb_migrations/
+│       └── 1_create_collections.js
+├── <span class="accent">tests/</span>
+│   ├── conftest.py
+│   ├── test_health.py
+│   ├── test_auth.py
+│   ├── test_rag_configs.py
+│   ├── test_retrieval_params.py
+│   └── test_chat_integration.py
+├── <span class="accent">docs/</span>
+│   ├── admin-ui.md
+│   └── user-ui.md
+└── <span class="accent">scripts/</span>
+    ├── setup.sh          <span style="color:var(--text3)"># VM setup</span>
+    ├── run_local.sh      <span style="color:var(--text3)"># local dev</span>
+    └── deploy.sh         <span style="color:var(--text3)"># GCE deploy</span>
+
+
+<span style="color:var(--text3)">Key directories:</span>
+<span class="accent">app/routers/</span>    API endpoints
+<span class="accent">app/retrieval/</span>  Backend implementations
+<span class="accent">app/services/</span>   Business logic
+<span class="accent">pb/</span>             PocketBase data + migrations
+<span class="accent">scripts/</span>        Deployment automation</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 17 — GETTING STARTED
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="17">
+  <div class="slide-inner">
+    <h2>Getting Started</h2>
+    <div style="margin-bottom:32px">
+      <div class="level-bar">
+        <div class="num">1</div>
+        <div><strong>Clone</strong> &mdash; <code>git clone &lt;repo-url&gt; &amp;&amp; cd chatbot</code></div>
+      </div>
+      <div class="level-bar" style="border-left-color:var(--green)">
+        <div class="num" style="background:var(--green)">2</div>
+        <div><strong>Configure</strong> &mdash; <code>cp .env.example .env</code> &mdash; set <code>GCP_PROJECT_ID</code>, <code>POCKETBASE_ADMIN_EMAIL</code>, <code>POCKETBASE_ADMIN_PASSWORD</code></div>
+      </div>
+      <div class="level-bar" style="border-left-color:var(--amber)">
+        <div class="num" style="background:var(--amber)">3</div>
+        <div><strong>Run</strong> &mdash; <code>bash scripts/run_local.sh docker</code> (or <code>bash scripts/setup.sh</code> for VM)</div>
+      </div>
+      <div class="level-bar" style="border-left-color:var(--cyan)">
+        <div class="num" style="background:var(--cyan)">4</div>
+        <div><strong>Create admin</strong> &mdash; Register via UI, then promote to superuser in PocketBase admin</div>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>URL</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>/</code></td><td>User chat interface</td></tr>
+        <tr><td><code>/admin</code></td><td>Admin chat with backend selectors</td></tr>
+        <tr><td><code>/api/docs</code></td><td>Swagger API documentation</td></tr>
+        <tr><td><code>/pb/_/</code></td><td>PocketBase admin panel</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SLIDE 18 — THANK YOU
+     ════════════════════════════════════════════════════════════════ -->
+<div class="slide" data-slide="18">
+  <div class="slide-inner center">
+    <div style="margin-bottom:32px">
+      <svg width="56" height="56" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="#6366f1"/>
+        <path d="M20 44V20h8l8 14 8-14h8v24h-7V30l-6 10h-6l-6-10v14z" fill="#fff" opacity=".9"/>
+      </svg>
+    </div>
+    <h1>Thank You</h1>
+    <p class="subtitle" style="margin-bottom:32px">Questions?</p>
+    <div class="grid2" style="max-width:700px;margin:0 auto">
+      <div class="card center">
+        <h3>Key Benefits</h3>
+        <ul style="text-align:left">
+          <li>4 retrieval backends, hot-swappable</li>
+          <li>29-field config, no restarts needed</li>
+          <li>One-command deployment</li>
+          <li>Custom branding per clone</li>
+          <li>41 automated tests</li>
+        </ul>
+      </div>
+      <div class="card center">
+        <h3>Useful Links</h3>
+        <ul style="text-align:left">
+          <li><code>/api/docs</code> &mdash; Swagger UI</li>
+          <li><code>/admin</code> &mdash; Admin chat interface</li>
+          <li><code>/pb/_/</code> &mdash; PocketBase admin panel</li>
+          <li><code>/api/admin/stats</code> &mdash; Usage stats</li>
+          <li><code>/api/branding</code> &mdash; Branding config</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<div id="counter"></div>
+<div id="progress"></div>
+<div id="nav-hint">Arrow keys or click to navigate</div>
+
+<script>
+(function(){
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  const counter = document.getElementById('counter');
+  const progress = document.querySelector('#progress');
+  let current = 0;
+
+  function show(idx){
+    if(idx < 0 || idx >= total) return;
+    slides[current].classList.remove('active');
+    slides[current].classList.add(idx > current ? 'prev' : '');
+    // Remove prev from all
+    slides.forEach(s => s.classList.remove('prev'));
+    if(idx > current){
+      slides[current].classList.add('prev');
+    }
+    current = idx;
+    slides[current].classList.add('active');
+    counter.textContent = (current + 1) + ' / ' + total;
+    progress.style.width = ((current + 1) / total * 100) + '%';
+    // Scroll slide content to top
+    slides[current].scrollTop = 0;
+  }
+
+  function next(){ show(current + 1); }
+  function prev(){ show(current - 1); }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' '){
+      e.preventDefault(); next();
+    } else if(e.key === 'ArrowLeft' || e.key === 'ArrowUp'){
+      e.preventDefault(); prev();
+    } else if(e.key === 'Home'){
+      e.preventDefault(); show(0);
+    } else if(e.key === 'End'){
+      e.preventDefault(); show(total - 1);
+    }
+  });
+
+  // Click navigation (left third = prev, right two-thirds = next)
+  document.addEventListener('click', function(e){
+    // Don't navigate if clicking on a link or interactive element
+    if(e.target.closest('a, button, input, select, textarea')) return;
+    const x = e.clientX / window.innerWidth;
+    if(x < 0.33) prev(); else next();
+  });
+
+  // Touch swipe
+  let touchStartX = 0;
+  document.addEventListener('touchstart', function(e){ touchStartX = e.touches[0].clientX; });
+  document.addEventListener('touchend', function(e){
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if(Math.abs(dx) > 50){
+      if(dx < 0) next(); else prev();
+    }
+  });
+
+  // Initialize
+  show(0);
+})();
+</script>
+</body>
+</html>

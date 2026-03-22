@@ -1,0 +1,19 @@
+{$DOMAIN:localhost} {
+    # FastAPI backend
+    handle /api/* {
+        reverse_proxy fastapi:8000
+    }
+
+    # PocketBase admin UI + API
+    handle /pb/* {
+        uri strip_prefix /pb
+        reverse_proxy pocketbase:8090
+    }
+
+    # Direct PocketBase API access (for SDK clients)
+    handle /_/* {
+        reverse_proxy pocketbase:8090
+    }
+
+    # On localhost, Caddy auto-serves HTTP (no TLS cert needed)
+}

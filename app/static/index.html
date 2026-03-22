@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="page-title">RAG Chatbot</title>
+  <link id="favicon" rel="icon" type="image/png" href="">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1b23;
+      --surface2: #252630;
+      --border: #2e2f3e;
+      --text: #e4e4e7;
+      --text-muted: #71717a;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --user-bg: #1e3a5f;
+      --bot-bg: #1a1b23;
+      --danger: #ef4444;
+      --success: #22c55e;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Auth Screen ── */
+    #auth-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      width: 400px;
+      max-width: 90vw;
+    }
+
+    .auth-card h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .auth-card p {
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent);
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      width: 100%;
+    }
+
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .auth-toggle {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .auth-toggle a {
+      color: var(--accent);
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .auth-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--danger);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    /* ── Chat Screen ── */
+    #chat-screen { display: none; height: 100vh; flex-direction: column; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar h2 { font-size: 16px; font-weight: 600; }
+
+    .topbar .badge {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-email {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-sm:hover {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    /* ── Settings Panel ── */
+    .settings-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 13px;
+    }
+
+    .settings-bar label {
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .settings-bar select {
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+    }
+
+    /* ── Messages ── */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .message {
+      max-width: 75%;
+      padding: 14px 18px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    .message-user {
+      align-self: flex-end;
+      background: var(--user-bg);
+      border-bottom-right-radius: 4px;
+    }
+
+    .message-bot {
+      align-self: flex-start;
+      background: var(--bot-bg);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+
+    .message-bot .sources {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .message-bot .sources summary {
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .message-bot .sources .source-item {
+      padding: 4px 0;
+      font-family: monospace;
+      font-size: 11px;
+    }
+
+    .typing-indicator {
+      align-self: flex-start;
+      padding: 14px 18px;
+      background: var(--bot-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      border-bottom-left-radius: 4px;
+      display: none;
+    }
+
+    .typing-indicator span {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: bounce 1.4s infinite;
+      margin-right: 4px;
+    }
+
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; margin-right: 0; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-6px); }
+    }
+
+    /* ── Input ── */
+    .input-area {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .input-row textarea {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+      min-height: 46px;
+      max-height: 150px;
+      transition: border-color 0.2s;
+    }
+
+    .input-row textarea:focus { border-color: var(--accent); }
+
+    .btn-send {
+      padding: 0 20px;
+      border-radius: 12px;
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-send:hover { background: var(--accent-hover); }
+    .btn-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Welcome ── */
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 40px;
+    }
+
+    .welcome h3 {
+      font-size: 20px;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .welcome p { font-size: 14px; max-width: 400px; }
+
+    /* ── Scrollbar ── */
+    .messages::-webkit-scrollbar { width: 6px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- ════ Auth Screen ════ -->
+  <div id="auth-screen">
+    <div class="auth-card">
+      <h1 id="auth-title">Sign in</h1>
+      <p id="auth-subtitle">Enter your credentials to start chatting.</p>
+      <div class="auth-error" id="auth-error"></div>
+      <form id="auth-form" onsubmit="return false;">
+        <div class="form-group" id="name-group" style="display:none">
+          <label>Name</label>
+          <input type="text" id="auth-name" placeholder="Your name">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="auth-email" placeholder="you@example.com" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="auth-password" placeholder="Password" required>
+        </div>
+        <button class="btn btn-primary" id="auth-btn" type="submit">Sign in</button>
+      </form>
+      <div class="auth-toggle">
+        <span id="auth-toggle-text">Don't have an account?</span>
+        <a id="auth-toggle-link" onclick="toggleAuthMode()">Register</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ Chat Screen ════ -->
+  <div id="chat-screen">
+    <div class="topbar">
+      <div class="topbar-left">
+        <img id="topbar-icon" style="width:28px;height:28px;border-radius:6px;object-fit:contain;display:none" src="" alt="">
+        <h2 id="topbar-title">RAG Chatbot</h2>
+        <span class="badge" id="backend-badge">none</span>
+      </div>
+      <div class="topbar-right">
+        <span class="user-email" id="user-email"></span>
+        <button class="btn-sm" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="settings-bar">
+      <label>Backend:</label>
+      <select id="sel-backend" onchange="updateBadge()">
+        <option value="">Use config default</option>
+        <option value="none">None (direct Gemini)</option>
+        <option value="rag_store">RAG Store</option>
+        <option value="vertex_search">Vertex Search</option>
+        <option value="vector_search">Vector Search</option>
+      </select>
+      <label>Config ID:</label>
+      <select id="sel-config">
+        <option value="">Active config</option>
+      </select>
+    </div>
+
+    <div class="messages" id="messages">
+      <div class="welcome" id="welcome">
+        <h3>What can I help you with?</h3>
+        <p>Ask me anything. I'll use the configured retrieval backend and system prompt to answer.</p>
+      </div>
+    </div>
+
+    <div class="typing-indicator" id="typing">
+      <span></span><span></span><span></span>
+    </div>
+
+    <div class="input-area">
+      <div class="input-row">
+        <textarea id="input" rows="1" placeholder="Type your message..." onkeydown="handleKey(event)"></textarea>
+        <button class="btn-send" id="send-btn" onclick="send()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    let token = localStorage.getItem('token') || '';
+    let isRegister = false;
+
+    // ── Branding ──
+    (async () => {
+      try {
+        const r = await fetch(`${API}/api/branding`);
+        if (!r.ok) return;
+        const b = await r.json();
+        if (b.bot_name) {
+          document.getElementById('page-title').textContent = b.bot_name + ' (Admin)';
+          document.getElementById('topbar-title').textContent = b.bot_name;
+        }
+        if (b.bot_icon_url) {
+          const icon = document.getElementById('topbar-icon');
+          icon.src = b.bot_icon_url; icon.style.display = 'block';
+          document.getElementById('favicon').href = b.bot_icon_url;
+        }
+      } catch {}
+    })();
+
+    // ── Auth ──
+    function toggleAuthMode() {
+      isRegister = !isRegister;
+      document.getElementById('auth-title').textContent = isRegister ? 'Create account' : 'Sign in';
+      document.getElementById('auth-subtitle').textContent = isRegister
+        ? 'Register a new account to get started.'
+        : 'Enter your credentials to start chatting.';
+      document.getElementById('auth-btn').textContent = isRegister ? 'Register' : 'Sign in';
+      document.getElementById('name-group').style.display = isRegister ? 'block' : 'none';
+      document.getElementById('auth-toggle-text').textContent = isRegister ? 'Already have an account?' : "Don't have an account?";
+      document.getElementById('auth-toggle-link').textContent = isRegister ? 'Sign in' : 'Register';
+      hideAuthError();
+    }
+
+    function showAuthError(msg) {
+      const el = document.getElementById('auth-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function hideAuthError() {
+      document.getElementById('auth-error').style.display = 'none';
+    }
+
+    document.getElementById('auth-form').addEventListener('submit', async () => {
+      hideAuthError();
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+      const name = document.getElementById('auth-name').value;
+      const btn = document.getElementById('auth-btn');
+      btn.disabled = true;
+
+      try {
+        if (isRegister) {
+          await fetch(`${API}/api/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, name }),
+          }).then(r => { if (!r.ok) throw r; });
+          // After register, auto-login
+        }
+
+        const resp = await fetch(`${API}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (!resp.ok) throw new Error('Invalid credentials');
+        const data = await resp.json();
+        token = data.token;
+        localStorage.setItem('token', token);
+        enterChat(data.record?.email || email);
+      } catch (e) {
+        showAuthError(e.message || 'Authentication failed');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    function logout() {
+      token = '';
+      localStorage.removeItem('token');
+      document.getElementById('chat-screen').style.display = 'none';
+      document.getElementById('auth-screen').style.display = 'flex';
+      document.getElementById('messages').innerHTML =
+        '<div class="welcome" id="welcome"><h3>What can I help you with?</h3><p>Ask me anything.</p></div>';
+    }
+
+    // ── Chat ──
+    async function enterChat(email) {
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('chat-screen').style.display = 'flex';
+      document.getElementById('user-email').textContent = email;
+      document.getElementById('input').focus();
+      loadConfigs();
+    }
+
+    async function loadConfigs() {
+      try {
+        const resp = await fetch(`${API}/api/admin/rag-configs`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (resp.ok) {
+          const items = await resp.json();
+          const sel = document.getElementById('sel-config');
+          sel.innerHTML = '<option value="">Active config</option>';
+          (Array.isArray(items) ? items : []).forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = `${c.name}${c.is_active ? ' (active)' : ''}`;
+            sel.appendChild(opt);
+          });
+        }
+      } catch {}
+    }
+
+    function updateBadge() {
+      const v = document.getElementById('sel-backend').value || 'config default';
+      document.getElementById('backend-badge').textContent = v;
+    }
+
+    function handleKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 150) + 'px';
+    }
+
+    document.getElementById('input').addEventListener('input', function () {
+      autoResize(this);
+    });
+
+    function addMessage(text, role, sources) {
+      const welcome = document.getElementById('welcome');
+      if (welcome) welcome.remove();
+
+      const div = document.createElement('div');
+      div.className = `message message-${role}`;
+
+      if (role === 'bot' && sources && sources.length > 0) {
+        const srcHtml = sources.map(s =>
+          `<div class="source-item">${s.source} (score: ${s.score?.toFixed(3) || '—'})</div>`
+        ).join('');
+        div.innerHTML = `${escapeHtml(text)}<div class="sources"><details><summary>${sources.length} source(s)</summary>${srcHtml}</details></div>`;
+      } else {
+        div.textContent = text;
+      }
+
+      document.getElementById('messages').appendChild(div);
+      scrollToBottom();
+      return div;
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    function scrollToBottom() {
+      const m = document.getElementById('messages');
+      m.scrollTop = m.scrollHeight;
+    }
+
+    async function send() {
+      const input = document.getElementById('input');
+      const query = input.value.trim();
+      if (!query) return;
+
+      input.value = '';
+      autoResize(input);
+      addMessage(query, 'user');
+
+      const typing = document.getElementById('typing');
+      typing.style.display = 'block';
+      scrollToBottom();
+
+      const btn = document.getElementById('send-btn');
+      btn.disabled = true;
+
+      const body = { query };
+      const backend = document.getElementById('sel-backend').value;
+      if (backend) body.backend = backend;
+      const configId = document.getElementById('sel-config').value;
+      if (configId) body.config_id = configId;
+
+      try {
+        const resp = await fetch(`${API}/api/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (resp.status === 401) {
+          logout();
+          showAuthError('Session expired. Please sign in again.');
+          return;
+        }
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.detail || `Error ${resp.status}`);
+        }
+
+        const data = await resp.json();
+        addMessage(data.answer, 'bot', data.sources);
+      } catch (e) {
+        addMessage(`Error: ${e.message}`, 'bot');
+      } finally {
+        typing.style.display = 'none';
+        btn.disabled = false;
+        input.focus();
+      }
+    }
+
+    // ── Auto-login if token exists ──
+    (async () => {
+      if (!token) return;
+      try {
+        const resp = await fetch(`${API}/api/health`);
+        if (!resp.ok) throw 0;
+        // Validate token by trying chat health-like call
+        enterChat('');
+        // Try to get email from a refresh
+        const r2 = await fetch(`${API}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query: '' }),
+        });
+        if (r2.status === 401) { logout(); }
+      } catch {
+        logout();
+      }
+    })();
+  </script>
+</body>
+</html>
